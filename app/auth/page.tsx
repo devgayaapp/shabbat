@@ -1,6 +1,8 @@
+'use client';
+
 import { Auth } from '@supabase/auth-ui-react';
 import { ThemeSupa } from '@supabase/auth-ui-shared';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/lib/supabaseClient';
 
 export default function AuthPage() {
   return (
@@ -12,7 +14,7 @@ export default function AuthPage() {
           appearance={{ theme: ThemeSupa }}
           theme="light"
           providers={['google', 'github']}
-          redirectTo={`${window.location.origin}/auth/callback`}
+          redirectTo={typeof window !== 'undefined' ? `${window.location.origin}/auth/callback` : undefined}
         />
       </div>
     </div>

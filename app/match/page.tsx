@@ -1,186 +1,180 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabaseClient'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import Link from 'next/link'
+import Image from 'next/image'
 
 interface Profile {
   id: string
+  user_id: string
   name: string
   age: number
   gender: string
+  preferred_genders: string
   bio: string
   profile_pic_url: string
 }
 
-export default function Match() {
-  const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
+interface Match {
+  id: string
+  user_id: string
+  target_user_id: string
+  status: 'pending' | 'accepted' | 'rejected'
+}
+
+export default function MatchPage() {
+  const [potentialMatches, setPotentialMatches] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [matchModal, setMatchModal] = useState<{ show: boolean, name: string, phone: string } | null>(null)
 
   useEffect(() => {
-    fetchNextProfile()
+    const fetchMatches = async () => {
+      try {
+        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        if (userError) throw userError
+        if (!user) throw new Error('No user logged in')
+
+        const { data: userProfile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single()
+        if (profileError) throw profileError
+        if (!userProfile) throw new Error('No profile found')
+
+        const preferredGenders = userProfile.preferred_genders?.split(',') || []
+        if (preferredGenders.length === 0) {
+          setPotentialMatches([])
+          setLoading(false)
+          return
+        }
+
+        const { data: matches, error: matchError } = await supabase
+          .from('profiles')
+          .select('*')
+          .neq('user_id', user.id)
+          .in('gender', preferredGenders)
+          .not('id', 'in', supabase
+            .from('matches')
+            .select('target_user_id')
+            .eq('user_id', user.id));
+
+        if (matchError) throw matchError
+        setPotentialMatches(matches || [])
+      } catch (err) {
+        console.error('Error fetching matches:', err)
+        setError(err instanceof Error ? err.message : 'Failed to fetch matches')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMatches()
   }, [])
 
-  const fetchNextProfile = async () => {
-    try {
-      setLoading(true)
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('No user logged in')
-
-      const { data: userProfile } = await supabase
-        .from('profiles')
-        .select('preferred_genders')
-        .eq('user_id', user.id)
-        .single()
-
-      const { data: profiles, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .neq('user_id', user.id)
-        .in('gender', userProfile.preferred_genders.split(','))
-        .not('id', 'in', (supabase
-          .from('matches')
-          .select('target_user_id')
-          .eq('user_id', user.id)))
-        .limit(1)
-
-      if (error) throw error
-
-      setCurrentProfile(profiles[0] || null)
-    } catch (error) {
-      setError(error.message)
-    } finally {
-      setLoading(false)
-    }
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <p>Loading potential matches...</p>
+      </div>
+    )
   }
 
-  const handleChoice = async (isInterested: boolean) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user || !currentProfile) return
-
-      const { data: existingMatch, error: matchError } = await supabase
-        .from('matches')
-        .select('*')
-        .eq('user_id', currentProfile.id)
-        .eq('target_user_id', user.id)
-        .single()
-
-      if (matchError && matchError.code !== 'PGRST116') throw matchError
-
-      if (existingMatch && existingMatch.is_interested && isInterested) {
-        // It's a match!
-        const { data: matchedProfile } = await supabase
-          .from('profiles')
-          .select('name, phone')
-          .eq('user_id', currentProfile.id)
-          .single()
-
-        setMatchModal({ show: true, name: matchedProfile.name, phone: matchedProfile.phone })
-      }
-
-      const { error } = await supabase
-        .from('matches')
-        .upsert({
-          user_id: user.id,
-          target_user_id: currentProfile.id,
-          is_interested: isInterested
-        })
-
-      if (error) throw error
-
-      fetchNextProfile()
-    } catch (error) {
-      setError(error.message)
-    }
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center">
+        <Card className="w-[350px]">
+          <CardHeader>
+            <CardTitle>Error</CardTitle>
+            <CardDescription>{error}</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button onClick={() => window.location.reload()}>Try Again</Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
   }
-
-  if (loading) return <div>Loading...</div>
-  if (error) return <div>Error: {error}</div>
-  if (!currentProfile) return <div>No more profiles to show</div>
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Find Your Match</h2>
-        </div>
-        <div className="bg-white shadow overflow-hidden sm:rounded-lg">
-          <div className="px-4 py-5 sm:px-6">
-            <img src={currentProfile.profile_pic_url} alt={currentProfile.name} className="w-full h-64 object-cover rounded-lg" />
-          </div>
-          <div className="border-t border-gray-200 px-4 py-5 sm:px-6">
-            <dl className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2">
-              <div className="sm:col-span-1">
-                <dt className="text-sm font-medium text-gray-500">Name</dt>
-                <dd className="mt-1 text-sm text-gray-900">{currentProfile.name}</dd>
-              </div>
-              <div className="sm:col-span-1">
-                <dt className="text-sm font-medium text-gray-500">Age</dt>
-                <dd className="mt-1 text-sm text-gray-900">{currentProfile.age}</dd>
-              </div>
-              <div className="sm:col-span-1">
-                <dt className="text-sm font-medium text-gray-500">Gender</dt>
-                <dd className="mt-1 text-sm text-gray-900">{currentProfile.gender}</dd>
-              </div>
-              <div className="sm:col-span-2">
-                <dt className="text-sm font-medium text-gray-500">Bio</dt>
-                <dd className="mt-1 text-sm text-gray-900">{currentProfile.bio}</dd>
-              </div>
-            </dl>
-          </div>
-        </div>
-        <div className="flex justify-center space-x-4">
-          <button
-            onClick={() => handleChoice(false)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            No
-          </button>
-          <button
-            onClick={() => handleChoice(true)}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
-          >
-            Yes
-          </button>
-        </div>
-      </div>
-      {matchModal && (
-        <div className="fixed z-10 inset-0 overflow-y-auto">
-          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
-              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="py-6">
+          <nav className="flex justify-between items-center">
+            <Link href="/" className="text-2xl font-bold text-blue-600">
+              Shabbat Matches
+            </Link>
+            <div className="flex items-center space-x-4">
+              <Link href="/profile">
+                <Button variant="outline">Profile</Button>
+              </Link>
+              <Link href="/dashboard">
+                <Button variant="outline">Dashboard</Button>
+              </Link>
             </div>
-            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-            <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
-              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-                <div className="sm:flex sm:items-start">
-                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
-                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-title">
-                      It's a Match!
-                    </h3>
-                    <div className="mt-2">
-                      <p className="text-sm text-gray-500">
-                        You've matched with {matchModal.name}! Here's their phone number: {matchModal.phone}
-                      </p>
+          </nav>
+        </header>
+
+        <main className="py-12">
+          <div className="max-w-4xl mx-auto">
+            <h1 className="text-4xl font-bold mb-8">Find Your Match</h1>
+            
+            {potentialMatches.length > 0 ? (
+              <div className="space-y-6">
+                {potentialMatches.map((match) => (
+                  <Card key={match.id} className="bg-white">
+                    <div className="sm:flex">
+                      <div className="relative w-full sm:w-48 h-64 sm:h-auto">
+                        {match.profile_pic_url ? (
+                          <Image
+                            src={match.profile_pic_url}
+                            alt={`${match.name}'s profile picture`}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 640px) 100vw, 192px"
+                          />
+                        ) : (
+                          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-gray-400">No photo</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <CardHeader>
+                          <CardTitle className="text-2xl">{match.name}</CardTitle>
+                          <CardDescription>
+                            {match.age} • {match.gender}
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-gray-600">{match.bio}</p>
+                        </CardContent>
+                        <CardFooter className="flex justify-end space-x-2">
+                          <Button variant="outline">Pass</Button>
+                          <Button>Connect</Button>
+                        </CardFooter>
+                      </div>
                     </div>
-                  </div>
-                </div>
+                  </Card>
+                ))}
               </div>
-              <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
-                <button
-                  type="button"
-                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:ml-3 sm:w-auto sm:text-sm"
-                  onClick={() => setMatchModal(null)}
-                >
-                  Close
-                </button>
+            ) : (
+              <div className="text-center py-12">
+                <h2 className="text-2xl font-semibold text-gray-900">No Matches Found</h2>
+                <p className="mt-2 text-gray-600">
+                  Update your preferences to see more matches
+                </p>
+                <Link href="/profile" className="mt-4 inline-block">
+                  <Button>Update Profile</Button>
+                </Link>
               </div>
-            </div>
+            )}
           </div>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   )
 }
