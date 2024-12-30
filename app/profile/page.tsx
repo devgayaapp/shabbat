@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Suspense } from 'react'
 import { supabase } from '@/lib/supabaseClient'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,12 +11,15 @@ import { Textarea } from "@/components/ui/textarea"
 import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Camera } from 'lucide-react'
+import { useUser } from '@/contexts/UserContext'
+import AuthLoading from '@/components/auth/loading'
 
-export default function ProfilePage() {
+function ProfileForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const isNewUser = searchParams.get('new') === 'true'
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { user } = useUser()
   
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -33,17 +36,10 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
-        router.push('/login')
-        return
-      }
-      loadProfile(session.user.id)
+    if (user) {
+      loadProfile(user.id)
     }
-
-    checkSession()
-  }, [])
+  }, [user])
 
   const loadProfile = async (userId: string) => {
     try {
@@ -90,11 +86,10 @@ export default function ProfilePage() {
   }
 
   const uploadImage = async (file: File): Promise<string> => {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) throw new Error('No user logged in')
+    if (!user) throw new Error('No user logged in')
 
     const fileExt = file.name.split('.').pop()
-    const fileName = `${session.user.id}-${Math.random()}.${fileExt}`
+    const fileName = `${user.id}-${Math.random()}.${fileExt}`
     const filePath = `profiles/${fileName}`
 
     const { error: uploadError } = await supabase.storage
@@ -117,8 +112,7 @@ export default function ProfilePage() {
     setSuccess(false)
 
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-      if (sessionError || !session) {
+      if (!user) {
         throw new Error('No user logged in')
       }
 
@@ -133,7 +127,7 @@ export default function ProfilePage() {
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
         .select('id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', user.id)
         .single()
 
       if (checkError && checkError.code !== 'PGRST116') throw checkError
@@ -152,14 +146,14 @@ export default function ProfilePage() {
             profile_pic_url,
             updated_at: new Date().toISOString()
           })
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
         error = updateError
       } else {
         // Insert new profile
         const { error: insertError } = await supabase
           .from('profiles')
           .insert([{
-            user_id: session.user.id,
+            user_id: user.id,
             name: formData.name,
             age: parseInt(formData.age),
             gender: formData.gender,
@@ -186,15 +180,11 @@ export default function ProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center">
-        <p>Loading profile...</p>
-      </div>
-    )
+    return <AuthLoading />
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#FDF6E6] to-white">
+    <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header className="py-6">
           <h1 className="text-2xl font-bold text-[#E6B94D]">
@@ -334,6 +324,14 @@ export default function ProfilePage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function ProfilePage() {
+  return (
+    <Suspense fallback={<AuthLoading />}>
+      <ProfileForm />
+    </Suspense>
   )
 }
 
