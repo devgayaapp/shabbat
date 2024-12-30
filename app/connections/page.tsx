@@ -105,12 +105,12 @@ export default function Connections() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#FDF6E6] to-white">
       <div className="max-w-7xl mx-auto px-4">
-        <header className="py-4 md:py-6 sticky top-0 bg-gradient-to-b from-blue-50 to-white/95 backdrop-blur-sm z-10">
+        <header className="py-4 md:py-6 sticky top-0 bg-gradient-to-b from-[#FDF6E6] to-white/95 backdrop-blur-sm z-10">
           <nav className="flex justify-between items-center">
-            <Link href="/dashboard" className="text-xl md:text-2xl font-bold text-blue-600">
-              Shabbat Matches
+            <Link href="/dashboard" className="text-xl md:text-2xl font-bold text-[#E6B94D]">
+              Yaniv's Shabbat Matches
             </Link>
 
             {/* Mobile menu button */}

@@ -1,75 +1,228 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '@/lib/supabaseClient'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import Link from 'next/link'
+import { Textarea } from "@/components/ui/textarea"
+import { useRouter, useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { Camera } from 'lucide-react'
 
-export default function Profile() {
-  const [name, setName] = useState('')
-  const [age, setAge] = useState('')
-  const [gender, setGender] = useState('')
-  const [location, setLocation] = useState('')
-  const [denomination, setDenomination] = useState('')
-  const [about, setAbout] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [profilePicture, setProfilePicture] = useState<string | null>(null)
+export default function ProfilePage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const isNewUser = searchParams.get('new') === 'true'
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    name: '',
+    age: '',
+    gender: '',
+    preferred_genders: '',
+    bio: '',
+    profile_pic_url: ''
+  })
 
-  const handleProfilePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        router.push('/login')
+        return
+      }
+      loadProfile(session.user.id)
+    }
+
+    checkSession()
+  }, [])
+
+  const loadProfile = async (userId: string) => {
+    try {
+      if (!isNewUser) {
+        const { data, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', userId)
+          .single()
+
+        if (profileError && profileError.code !== 'PGRST116') throw profileError
+
+        if (data) {
+          setFormData({
+            name: data.name || '',
+            age: data.age?.toString() || '',
+            gender: data.gender || '',
+            preferred_genders: data.preferred_genders || '',
+            bio: data.bio || '',
+            profile_pic_url: data.profile_pic_url || ''
+          })
+          if (data.profile_pic_url) {
+            setImagePreview(data.profile_pic_url)
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error loading profile:', err)
+      setError(err instanceof Error ? err.message : 'Failed to load profile')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       const reader = new FileReader()
       reader.onloadend = () => {
-        setProfilePicture(reader.result as string)
+        setImagePreview(reader.result as string)
       }
       reader.readAsDataURL(file)
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const uploadImage = async (file: File): Promise<string> => {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) throw new Error('No user logged in')
+
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${session.user.id}-${Math.random()}.${fileExt}`
+    const filePath = `profiles/${fileName}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('profile-pictures')
+      .upload(filePath, file)
+
+    if (uploadError) throw uploadError
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('profile-pictures')
+      .getPublicUrl(filePath)
+
+    return publicUrl
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setLoading(true)
-    
-    // In development, just simulate saving
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    setLoading(false)
-    // Redirect back to dashboard
-    window.location.href = '/dashboard'
+    setSaving(true)
+    setError(null)
+    setSuccess(false)
+
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        throw new Error('No user logged in')
+      }
+
+      // Upload image if there's a new one
+      let profile_pic_url = formData.profile_pic_url
+      const fileInput = fileInputRef.current
+      if (fileInput?.files?.[0]) {
+        profile_pic_url = await uploadImage(fileInput.files[0])
+      }
+
+      // First, check if a profile exists
+      const { data: existingProfile, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (checkError && checkError.code !== 'PGRST116') throw checkError
+
+      let error
+      if (existingProfile) {
+        // Update existing profile
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            name: formData.name,
+            age: parseInt(formData.age),
+            gender: formData.gender,
+            preferred_genders: formData.preferred_genders,
+            bio: formData.bio,
+            profile_pic_url,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', session.user.id)
+        error = updateError
+      } else {
+        // Insert new profile
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert([{
+            user_id: session.user.id,
+            name: formData.name,
+            age: parseInt(formData.age),
+            gender: formData.gender,
+            preferred_genders: formData.preferred_genders,
+            bio: formData.bio,
+            profile_pic_url,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }])
+        error = insertError
+      }
+
+      if (error) throw error
+
+      setSuccess(true)
+      // Route to matches page after successful profile creation/update
+      router.push('/matches')
+    } catch (err) {
+      console.error('Error saving profile:', err)
+      setError(err instanceof Error ? err.message : 'Failed to save profile')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white flex items-center justify-center">
+        <p>Loading profile...</p>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="max-w-7xl mx-auto px-4">
-        <header className="py-4 md:py-6">
-          <nav className="flex justify-between items-center">
-            <Link href="/dashboard" className="text-xl md:text-2xl font-bold text-blue-600">
-              Shabbat Matches
-            </Link>
-          </nav>
+    <div className="min-h-screen bg-gradient-to-b from-[#FDF6E6] to-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="py-6">
+          <h1 className="text-2xl font-bold text-[#E6B94D]">
+            {isNewUser ? 'Complete Your Profile' : 'Edit Profile'}
+          </h1>
         </header>
 
-        <main className="py-6 md:py-12">
+        <main className="py-12">
           <Card className="max-w-2xl mx-auto">
             <CardHeader>
-              <CardTitle>Your Profile</CardTitle>
+              <CardTitle>Profile Details</CardTitle>
               <CardDescription>
-                Tell us about yourself to find better matches
+                {isNewUser 
+                  ? 'Tell us about yourself to start finding matches'
+                  : 'Update your profile information'
+                }
               </CardDescription>
             </CardHeader>
             <form onSubmit={handleSubmit}>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 <div className="flex flex-col items-center space-y-4">
-                  <div className="relative w-32 h-32 rounded-full overflow-hidden bg-gray-100">
-                    {profilePicture ? (
+                  <div 
+                    className="relative w-32 h-32 rounded-full overflow-hidden bg-gray-100 cursor-pointer"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    {imagePreview ? (
                       <Image
-                        src={profilePicture}
+                        src={imagePreview}
                         alt="Profile picture"
                         fill
                         className="object-cover"
@@ -81,11 +234,11 @@ export default function Profile() {
                     )}
                   </div>
                   <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     className="hidden"
-                    ref={fileInputRef}
-                    onChange={handleProfilePictureChange}
+                    onChange={handleImageChange}
                   />
                   <Button
                     type="button"
@@ -93,97 +246,87 @@ export default function Profile() {
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
                   >
-                    {profilePicture ? 'Change Picture' : 'Upload Picture'}
+                    {imagePreview ? 'Change Picture' : 'Upload Picture'}
                   </Button>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
+                  <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     required
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="age">Age</Label>
-                    <Input
-                      id="age"
-                      type="number"
-                      min="18"
-                      max="120"
-                      value={age}
-                      onChange={(e) => setAge(e.target.value)}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="gender">Gender</Label>
-                    <Select value={gender} onValueChange={setGender} required>
-                      <SelectTrigger id="gender">
-                        <SelectValue placeholder="Select gender" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="male">Male</SelectItem>
-                        <SelectItem value="female">Female</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="age">Age</Label>
                   <Input
-                    id="location"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    id="age"
+                    type="number"
+                    value={formData.age}
+                    onChange={(e) => setFormData({ ...formData, age: e.target.value })}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="denomination">Jewish Denomination</Label>
-                  <Select value={denomination} onValueChange={setDenomination} required>
-                    <SelectTrigger id="denomination">
-                      <SelectValue placeholder="Select denomination" />
+                  <Label htmlFor="gender">Gender</Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value) => setFormData({ ...formData, gender: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="orthodox">Orthodox</SelectItem>
-                      <SelectItem value="modern_orthodox">Modern Orthodox</SelectItem>
-                      <SelectItem value="conservative">Conservative</SelectItem>
-                      <SelectItem value="reform">Reform</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="about">About Me</Label>
-                  <textarea
-                    id="about"
-                    className="min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    value={about}
-                    onChange={(e) => setAbout(e.target.value)}
+                  <Label htmlFor="preferred_genders">Looking For</Label>
+                  <Select
+                    value={formData.preferred_genders}
+                    onValueChange={(value) => setFormData({ ...formData, preferred_genders: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select preference" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Men</SelectItem>
+                      <SelectItem value="female">Women</SelectItem>
+                      <SelectItem value="both">Both</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">About Me</Label>
+                  <Textarea
+                    id="bio"
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder="Tell us about yourself..."
                     required
                   />
                 </div>
+
+                {error && (
+                  <p className="text-sm text-red-600">{error}</p>
+                )}
+
+                {success && (
+                  <p className="text-sm text-green-600">Profile saved successfully!</p>
+                )}
               </CardContent>
 
-              <CardFooter className="flex justify-between">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => window.location.href = '/dashboard'}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Saving...' : 'Save Profile'}
+              <CardFooter>
+                <Button type="submit" disabled={saving} className="w-full">
+                  {saving ? 'Saving...' : (isNewUser ? 'Start Matching' : 'Save Changes')}
                 </Button>
               </CardFooter>
             </form>
