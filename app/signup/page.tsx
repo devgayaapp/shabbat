@@ -22,18 +22,11 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
-      if (!siteUrl) {
-        throw new Error('NEXT_PUBLIC_SITE_URL environment variable is not set')
-      }
-      
-      const redirectUrl = `${siteUrl}/auth/callback?next=/profile?new=true`
-      
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl
+          emailRedirectTo: '/auth/callback?next=/profile?new=true'
         }
       })
 
