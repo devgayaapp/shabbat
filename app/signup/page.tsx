@@ -27,14 +27,13 @@ export default function SignUpPage() {
         throw new Error('NEXT_PUBLIC_SITE_URL environment variable is not set')
       }
       
-      const redirectTo = new URL('/auth/callback', siteUrl)
-      redirectTo.searchParams.set('next', '/profile?new=true')
+      const redirectUrl = `${siteUrl}/auth/callback?next=/profile?new=true`
       
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectTo.toString()
+          emailRedirectTo: redirectUrl
         }
       })
 
