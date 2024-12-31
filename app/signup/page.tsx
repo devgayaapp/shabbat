@@ -27,14 +27,14 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: `${siteUrl}/auth/callback`
+          emailRedirectTo: `${siteUrl}/auth/callback?next=/profile?new=true`
         }
       })
 
       if (signUpError) throw signUpError
 
-      // Route directly to profile completion
-      router.push('/profile?new=true')
+      // Show verification message
+      router.push('/auth/verify')
     } catch (err) {
       console.error('Error signing up:', err)
       setError(err instanceof Error ? err.message : 'Failed to sign up')
