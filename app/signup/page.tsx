@@ -22,7 +22,7 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+      const siteUrl = 'https://shabbat-matches.vercel.app'
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
