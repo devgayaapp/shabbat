@@ -22,7 +22,10 @@ export default function SignUpPage() {
     setError(null)
 
     try {
-      const siteUrl = 'https://shabbat-matches.vercel.app'
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+      if (!siteUrl) {
+        throw new Error('NEXT_PUBLIC_SITE_URL environment variable is not set')
+      }
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
