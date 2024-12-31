@@ -17,7 +17,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    cookieOptions: {
+      domain: process.env.NODE_ENV === 'production' ? 'shabbat-matches.vercel.app' : 'localhost'
+    }
   },
   global: {
     headers: {
