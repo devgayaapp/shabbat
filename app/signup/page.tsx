@@ -26,8 +26,9 @@ export default function SignUpPage() {
         email,
         password,
         options: {
-          emailRedirectTo: 'https://shabbat-matches.vercel.app/auth/callback?next=/profile?new=true'
-        }
+          emailRedirectTo: process.env.NEXT_PUBLIC_SUPABASE_EMAIL_REDIRECT_TO 
+            ?? 'https://shabbat-matches.vercel.app/auth/callback?next=/profile?new=true'
+        },
       })
 
       if (signUpError) throw signUpError
