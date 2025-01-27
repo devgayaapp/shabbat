@@ -20,19 +20,22 @@ export default function SignUpPage() {
     e.preventDefault()
     setLoading(true)
     setError(null)
-
+  
     try {
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: process.env.NEXT_PUBLIC_SUPABASE_EMAIL_REDIRECT_TO 
-            ?? 'https://shabbat-matches.vercel.app/auth/callback?next=/profile?new=true'
+          emailRedirectTo: `${window.location.origin}/auth/callback?next=/profile?new=true`
         },
       })
-
+  
       if (signUpError) throw signUpError
-
+  
+      if (!data?.user) {
+        throw new Error('No user data returned')
+      }
+  
       // Show verification message
       router.push('/auth/verify')
     } catch (err) {
@@ -62,6 +65,7 @@ export default function SignUpPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                disabled={loading}
               />
             </div>
             <div className="space-y-2">
@@ -72,10 +76,14 @@ export default function SignUpPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                disabled={loading}
+                minLength={6}
               />
             </div>
             {error && (
-              <p className="text-sm text-red-600">{error}</p>
+              <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded">
+                {error}
+              </div>
             )}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4">
@@ -94,4 +102,3 @@ export default function SignUpPage() {
     </div>
   )
 }
-

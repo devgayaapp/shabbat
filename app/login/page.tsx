@@ -22,19 +22,28 @@ export default function LoginPage() {
     setError(null)
 
     try {
+      console.log('Attempting login...')
+      
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       })
 
-      if (signInError) throw signInError
+      if (signInError) {
+        console.error('Sign in error:', signInError)
+        throw signInError
+      }
 
-      // Successful login
-      router.push('/matches')
+      if (!data?.session) {
+        throw new Error('No session created')
+      }
+
+      console.log('Login successful, session created')
+      window.location.href = '/matches'
+      
     } catch (err) {
-      console.error('Error signing in:', err)
+      console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'Failed to sign in')
-    } finally {
       setLoading(false)
     }
   }
@@ -66,8 +75,10 @@ export default function LoginPage() {
                     id="email"
                     type="email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.trim())}
                     required
+                    disabled={loading}
+                    placeholder="Enter your email"
                   />
                 </div>
                 <div className="space-y-2">
@@ -78,15 +89,19 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
+                    disabled={loading}
+                    placeholder="Enter your password"
                   />
                 </div>
                 {error && (
-                  <p className="text-sm text-red-600">{error}</p>
+                  <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded">
+                    {error}
+                  </div>
                 )}
               </CardContent>
               <CardFooter className="flex flex-col space-y-4">
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
                   disabled={loading}
                 >
@@ -106,4 +121,3 @@ export default function LoginPage() {
     </div>
   )
 }
-
