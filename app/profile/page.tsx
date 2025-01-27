@@ -105,33 +105,55 @@ function ProfileForm() {
     return publicUrl
   }
 
+  const getReadableError = (error: string) => {
+      if (error.includes('profiles_age_check')) {
+        return 'Please enter a valid age between 18 and 120'
+      }
+      if (error.includes('profiles_gender_check')) {
+        return 'Please select a valid gender'
+      }
+      if (error.includes('profiles_preferred_genders_check')) {
+        return 'Please select a valid preference'
+      }
+      if (error.includes('Failed to upload image')) {
+        return 'Unable to upload image. Please try a different image or try again later'
+      }
+      return 'Something went wrong. Please try again'
+    }
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
     setError(null)
     setSuccess(false)
-
+  
     try {
       if (!user) {
-        throw new Error('No user logged in')
+        throw new Error('Please log in to continue')
       }
-
+  
       // Upload image if there's a new one
       let profile_pic_url = formData.profile_pic_url
       const fileInput = fileInputRef.current
       if (fileInput?.files?.[0]) {
-        profile_pic_url = await uploadImage(fileInput.files[0])
+        try {
+          profile_pic_url = await uploadImage(fileInput.files[0])
+        } catch (uploadErr) {
+          throw new Error(`Failed to upload image: ${uploadErr instanceof Error ? uploadErr.message : 'Unknown error'}`)
+        }
       }
-
+  
       // First, check if a profile exists
       const { data: existingProfile, error: checkError } = await supabase
         .from('profiles')
         .select('id')
         .eq('user_id', user.id)
         .single()
-
-      if (checkError && checkError.code !== 'PGRST116') throw checkError
-
+  
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw new Error(`Failed to check profile: ${checkError.message}`)
+      }
+  
       let error
       if (existingProfile) {
         // Update existing profile
@@ -165,15 +187,16 @@ function ProfileForm() {
           }])
         error = insertError
       }
-
-      if (error) throw error
-
+  
+      if (error) {
+        throw new Error(error.message)
+      }
+  
       setSuccess(true)
-      // Route to matches page after successful profile creation/update
       router.push('/matches')
     } catch (err) {
       console.error('Error saving profile:', err)
-      setError(err instanceof Error ? err.message : 'Failed to save profile')
+      setError(getReadableError(err instanceof Error ? err.message : 'Unknown error'))
     } finally {
       setSaving(false)
     }
@@ -183,11 +206,23 @@ function ProfileForm() {
     return <AuthLoading />
   }
 
+  // Add this at the beginning of the component
+  const handleNavigation = () => {
+    if (isNewUser) {
+      router.push('/dashboard')
+    } else {
+      router.back()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <header className="py-6">
-          <h1 className="text-2xl font-bold text-[#E6B94D]">
+          <h1 
+            onClick={handleNavigation}
+            className="text-2xl font-bold text-[#E6B94D] cursor-pointer hover:text-[#d4a73c] transition-colors"
+          >
             {isNewUser ? 'Complete Your Profile' : 'Edit Profile'}
           </h1>
         </header>
@@ -267,12 +302,12 @@ function ProfileForm() {
                     value={formData.gender}
                     onValueChange={(value) => setFormData({ ...formData, gender: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Male</SelectItem>
-                      <SelectItem value="female">Female</SelectItem>
+                    <SelectContent className="bg-white border shadow-lg">
+                      <SelectItem value="male" className="cursor-pointer hover:bg-gray-50">Male</SelectItem>
+                      <SelectItem value="female" className="cursor-pointer hover:bg-gray-50">Female</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -283,13 +318,13 @@ function ProfileForm() {
                     value={formData.preferred_genders}
                     onValueChange={(value) => setFormData({ ...formData, preferred_genders: value })}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Select preference" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="male">Men</SelectItem>
-                      <SelectItem value="female">Women</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
+                    <SelectContent className="bg-white border shadow-lg">
+                      <SelectItem value="male" className="cursor-pointer hover:bg-gray-50">Men</SelectItem>
+                      <SelectItem value="female" className="cursor-pointer hover:bg-gray-50">Women</SelectItem>
+                      <SelectItem value="both" className="cursor-pointer hover:bg-gray-50">Both</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -120,7 +120,11 @@ export default function MatchesPage() {
       <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <header className="py-6">
-            <h1 className="text-2xl font-bold text-amber-600">Your Matches</h1>
+            <Link href="/dashboard">
+              <h1 className="text-2xl font-bold text-amber-600 hover:text-amber-700 cursor-pointer transition-colors">
+                Your Matches
+              </h1>
+            </Link>
           </header>
 
           <main className="py-12">
