@@ -47,58 +47,70 @@ export default function SignUpPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center px-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Create Account</CardTitle>
-          <CardDescription>
-            Sign up to start finding your match
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                disabled={loading}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-                minLength={6}
-              />
-            </div>
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded">
-                {error}
-              </div>
-            )}
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Creating Account...' : 'Create Account'}
-            </Button>
-            <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Log in
-              </Link>
-            </p>
-          </CardFooter>
-        </form>
-      </Card>
+    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <header className="py-4 sm:py-6">
+          <nav className="flex justify-center items-center">
+            <Link href="/" className="text-xl sm:text-2xl font-bold text-blue-600">
+              Shabbat Matches
+            </Link>
+          </nav>
+        </header>
+
+        <main className="flex justify-center py-8 sm:py-12">
+          <Card className="w-full max-w-md mx-4">
+            <CardHeader className="space-y-1">
+              <CardTitle className="text-2xl text-center">Create Account</CardTitle>
+              <CardDescription className="text-center">
+                Sign up to start finding your match
+              </CardDescription>
+            </CardHeader>
+            <form onSubmit={handleSubmit}>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    minLength={6}
+                  />
+                </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded">
+                    {error}
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="flex flex-col space-y-4">
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? 'Creating Account...' : 'Create Account'}
+                </Button>
+                <p className="text-sm text-gray-600">
+                  Already have an account?{' '}
+                  <Link href="/login" className="text-blue-600 hover:underline">
+                    Log in
+                  </Link>
+                </p>
+              </CardFooter>
+            </form>
+          </Card>
+        </main>
+      </div>
     </div>
   )
 }

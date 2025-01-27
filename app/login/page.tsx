@@ -51,16 +51,16 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <header className="py-6">
-          <nav className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-blue-600">
+        <header className="py-4 sm:py-6">
+          <nav className="flex justify-center items-center">
+            <Link href="/" className="text-xl sm:text-2xl font-bold text-blue-600">
               Shabbat Matches
             </Link>
           </nav>
         </header>
 
-        <main className="flex justify-center py-12">
-          <Card className="w-full max-w-md">
+        <main className="flex justify-center py-8 sm:py-12">
+          <Card className="w-full max-w-md mx-4">
             <CardHeader>
               <CardTitle>Welcome Back</CardTitle>
               <CardDescription>
