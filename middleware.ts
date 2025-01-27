@@ -1,7 +1,6 @@
-import { createServerClient } from '@supabase/ssr'
+import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
 
 // List of paths that require authentication
 const PROTECTED_PATHS = [
@@ -19,58 +18,39 @@ const AUTH_PATHS = [
   '/auth'
 ]
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  
-  // Create a Supabase client
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return req.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: any) {
-          req.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: any) {
-          req.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-        },
-      },
+export async function middleware(request: NextRequest) {
+  try {
+    // Create a response and a Supabase client
+    const res = NextResponse.next()
+    const supabase = createMiddlewareClient({ req: request, res })
+
+    // Refresh the session if it exists
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    const path = request.nextUrl.pathname
+
+    // If the path requires authentication and there's no session,
+    // redirect to login
+    if (PROTECTED_PATHS.some(protectedPath => path.startsWith(protectedPath)) && !session) {
+      const redirectUrl = new URL('/login', request.url)
+      redirectUrl.searchParams.set('redirect', path)
+      return NextResponse.redirect(redirectUrl)
     }
-  )
 
-  // Check if we have a session
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+    // If we're on an auth path and have a session,
+    // redirect to matches
+    if (AUTH_PATHS.some(authPath => path.startsWith(authPath)) && session) {
+      return NextResponse.redirect(new URL('/matches', request.url))
+    }
 
-  const path = req.nextUrl.pathname
-
-  // If the path requires authentication and there's no session,
-  // redirect to login
-  if (PROTECTED_PATHS.some(protectedPath => path.startsWith(protectedPath)) && !session) {
-    const redirectUrl = new URL('/login', req.url)
-    return NextResponse.redirect(redirectUrl)
+    return res
+  } catch (e) {
+    // If there's an error, redirect to login
+    console.error('Middleware error:', e)
+    return NextResponse.redirect(new URL('/login', request.url))
   }
-
-  // If we're on an auth path and have a session,
-  // redirect to matches
-  if (AUTH_PATHS.some(authPath => path.startsWith(authPath)) && session) {
-    const redirectUrl = new URL('/matches', req.url)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  return res
 }
 
 export const config = {
@@ -81,7 +61,8 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public (public files)
+     * - api (API routes)
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public|api).*)',
   ],
-} 
+}
