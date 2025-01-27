@@ -10,4 +10,11 @@ if (!supabaseUrl || !supabaseKey) {
 export const supabase = createClientComponentClient({
   supabaseUrl,
   supabaseKey,
+  cookieOptions: {
+    name: 'sb-session',
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    domain: undefined
+  }
 });

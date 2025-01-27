@@ -12,10 +12,15 @@ export async function GET(request: Request) {
     const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
     
     try {
-      const { error } = await supabase.auth.exchangeCodeForSession(code)
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code)
       if (error) {
         console.error('Auth callback error:', error)
         return NextResponse.redirect(new URL('/login', request.url))
+      }
+
+      // Set session cookie immediately after exchange
+      if (data?.session) {
+        await supabase.auth.setSession(data.session)
       }
     } catch (err) {
       console.error('Error in auth callback:', err)

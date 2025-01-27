@@ -35,46 +35,68 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Initial session check
-    const checkSession = async () => {
+    let mounted = true
+
+    const initSession = async () => {
       try {
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError) throw sessionError
+        // Get session using the built-in method
+        const { data: { session }, error } = await supabase.auth.getSession()
         
-        if (session?.user) {
-          setUser(session.user)
-          await loadProfile(session.user.id)
+        if (error) throw error
+        
+        if (mounted) {
+          if (session?.user) {
+            setUser(session.user)
+            const { data, error: profileError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', session.user.id)
+              .single()
+
+            if (!profileError && mounted) {
+              setProfile(data)
+            }
+          }
+          setIsLoading(false)
         }
-      } catch (err) {
-        console.error('Error checking session:', err)
-        setError(err instanceof Error ? err.message : 'Failed to check session')
-      } finally {
-        setIsLoading(false)
+      } catch (error) {
+        console.error('Session initialization error:', error)
+        if (mounted) {
+          setIsLoading(false)
+        }
       }
     }
 
-    checkSession()
+    // Initialize session
+    initSession()
 
     // Subscribe to auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsLoading(true)
-      try {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return
+
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session?.user || null)
         if (session?.user) {
-          setUser(session.user)
-          await loadProfile(session.user.id)
-        } else {
-          setUser(null)
-          setProfile(null)
+          supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single()
+            .then(({ data }) => {
+              if (mounted && data) {
+                setProfile(data)
+              }
+            })
         }
-      } catch (err) {
-        console.error('Error handling auth change:', err)
-        setError(err instanceof Error ? err.message : 'Failed to handle auth change')
-      } finally {
-        setIsLoading(false)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+        setProfile(null)
       }
+      setIsLoading(false)
     })
 
     return () => {
+      mounted = false
       subscription.unsubscribe()
     }
   }, [])
