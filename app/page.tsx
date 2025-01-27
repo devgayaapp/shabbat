@@ -1,6 +1,9 @@
+'use client'
+
 import Link from 'next/link'
 import { Button } from "@/components/ui/button"
 import Image from 'next/image'
+import { useUser } from '@/contexts/UserContext'
 
 const COUPLES = [
   {
@@ -42,37 +45,46 @@ const COUPLES = [
 ]
 
 export default function HomePage() {
+  const { user } = useUser()
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#FDF6E6] to-white">
-      {/* Hero Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <header className="py-6">
-          <nav className="flex justify-between items-center">
-            <Link href="/" className="text-2xl font-bold text-[#E6B94D]">
+        <header className="py-4 sm:py-6">
+          <nav className="flex flex-row justify-between items-center">
+            <Link href="/" className="text-base sm:text-xl md:text-2xl font-bold text-[#E6B94D] whitespace-nowrap truncate max-w-[180px] sm:max-w-none">
               Shabbat Matches
             </Link>
-            <div className="space-x-4">
-              <Link href="/login">
-                <Button variant="outline">Login</Button>
-              </Link>
-              <Link href="/signup">
-                <Button>Sign Up</Button>
-              </Link>
+            <div className="flex space-x-2 sm:space-x-4 shrink-0">
+              {user ? (
+                <Link href="/dashboard">
+                  <Button className="px-3 sm:px-4">Dashboard</Button>
+                </Link>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button variant="outline" className="px-2 sm:px-4 text-sm sm:text-base">Login</Button>
+                  </Link>
+                  <Link href="/signup">
+                    <Button className="px-2 sm:px-4 text-sm sm:text-base">Sign Up</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </header>
 
         <main>
-          {/* Hero Content */}
-          <div className="py-20 text-center">
-            <h1 className="text-5xl font-bold text-[#E6B94D] mb-6">
+          {/* Updated hero content */}
+          <div className="py-12 sm:py-20 text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-[#E6B94D] mb-4 sm:mb-6 px-2">
               Find Your Jewish Match
             </h1>
-            <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto">
+            <p className="text-lg sm:text-xl text-gray-600 mb-8 sm:mb-12 max-w-2xl mx-auto px-4">
               Join our community of Jewish singles looking for meaningful relationships. Start your journey to find your perfect match today.
             </p>
             <Link href="/signup">
-              <Button size="lg" className="text-lg px-8 py-6">
+              <Button size="lg" className="text-base sm:text-lg px-6 sm:px-8 py-4 sm:py-6">
                 Start Matching
               </Button>
             </Link>
@@ -95,6 +107,7 @@ export default function HomePage() {
                       src={couple.image}
                       alt={`${couple.names} - A success story from Shabbat Matches`}
                       fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="object-cover transition-transform group-hover:scale-105"
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />

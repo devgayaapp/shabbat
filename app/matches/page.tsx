@@ -67,26 +67,52 @@ export default function MatchesPage() {
 
   const handleConnect = async (profileId: string) => {
     try {
-      const { error: connectionError } = await supabase
+      console.log('Attempting to connect with profile:', profileId);
+      console.log('Current user:', user?.id);
+      
+      if (!user) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Find the target profile to get its user_id
+      const targetProfile = profiles.find(p => p.id === profileId);
+      if (!targetProfile) {
+        throw new Error('Target profile not found');
+      }
+
+      const connection = {
+        user_id: user.id,
+        target_user_id: targetProfile.user_id, // Use user_id instead of profile.id
+        status: 'pending',
+        created_at: new Date().toISOString()
+      };
+      console.log('Connection payload:', connection);
+
+      const { error: connectionError, data } = await supabase
         .from('connections')
-        .insert([{
-          user_id: user!.id,
-          target_user_id: profileId,
-          status: 'pending',
-          created_at: new Date().toISOString()
-        }]);
+        .insert([connection])
+        .select();
 
-      if (connectionError) throw connectionError;
+      if (connectionError) {
+        console.error('Supabase error details:', connectionError);
+        throw connectionError;
+      }
 
-      // Remove the connected profile from the list
+      console.log('Connection created successfully:', data);
       setProfiles(profiles.filter(p => p.id !== profileId));
     } catch (err) {
       console.error('Error connecting:', err);
+      console.error('Error details:', {
+        name: err instanceof Error ? err.name : 'Unknown',
+        message: err instanceof Error ? err.message : 'Unknown error occurred',
+        stack: err instanceof Error ? err.stack : undefined
+      });
       setError(err instanceof Error ? err.message : 'Failed to connect');
     }
   };
 
   const handlePass = (profileId: string) => {
+    /// TODO(badar): discuss what to do on server if I've just passed the user?
     setProfiles(profiles.filter(p => p.id !== profileId));
   };
 
@@ -95,7 +121,11 @@ export default function MatchesPage() {
       <div className="min-h-screen bg-gradient-to-b from-amber-50 to-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <header className="py-6">
-            <h1 className="text-2xl font-bold text-amber-600">Your Matches</h1>
+            <Link href="/dashboard">
+              <h1 className="text-2xl font-bold text-amber-600 hover:text-amber-700 cursor-pointer transition-colors">
+                Your Matches
+              </h1>
+            </Link>
           </header>
 
           <main className="py-12">
@@ -131,7 +161,8 @@ export default function MatchesPage() {
                         src={profile.profile_pic_url || '/default-avatar.png'}
                         alt={profile.name}
                         fill
-                        className="object-cover"
+                        className={profile.profile_pic_url ? "object-cover" : "object-contain p-4"}
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       />
                     </div>
                     <CardHeader>
@@ -162,4 +193,4 @@ export default function MatchesPage() {
       </div>
     </ProtectedRoute>
   );
-} 
+}

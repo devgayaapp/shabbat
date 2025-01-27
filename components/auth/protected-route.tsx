@@ -14,9 +14,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login')
-    }
+    const timeoutId = setTimeout(() => {
+      if (!isLoading && !user) {
+        router.push('/login')
+      }
+    }, 1000) // Add a small delay to prevent immediate redirects
+
+    return () => clearTimeout(timeoutId)
   }, [user, isLoading, router])
 
   if (isLoading) {
@@ -28,4 +32,4 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }
 
   return <>{children}</>
-} 
+}
