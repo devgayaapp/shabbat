@@ -112,6 +112,7 @@ export default function MatchesPage() {
   };
 
   const handlePass = (profileId: string) => {
+    /// TODO(badar): discuss what to do on server if I've just passed the user?
     setProfiles(profiles.filter(p => p.id !== profileId));
   };
 

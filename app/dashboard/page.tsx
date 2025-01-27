@@ -32,8 +32,6 @@ export default function DashboardPage() {
           data.preferred_genders &&
           data.bio
         );
-        console.log(`Profile complete: ${isComplete}`);
-        console.log(`name: ${data.name}, age: ${data.age}, gender: ${data.gender}, preferred_genders: ${data.preferred_genders}, bio: ${data.bio}`)
         setProfileComplete(isComplete);
       }
     };
